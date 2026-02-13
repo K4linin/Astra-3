@@ -1,0 +1,11 @@
+{
+  "crash_id": "c9d4d379da43a0fa",
+  "crash_type": "TypeError",
+  "severity": "low",
+  "is_false_positive": false,
+  "target": "parse_config",
+  "timestamp": "2026-02-13T20:01:01.712572",
+  "input_size": 23,
+  "input_hex": "caec2b3886fd2a9e31cd518efe4842b6d4bfc0c2a0a601",
+  "stack_trace": "Traceback (most recent call last):\n  File \"C:\\Users\\kalin\\OneDrive\\\u0420\u0430\u0431\u043e\u0447\u0438\u0439 \u0441\u0442\u043e\u043b\\Astra-3\\fuzz\\scripts\\fuzzing_monitor.py\", line 413, in _run_single_test\n    self.fuzz_function(data)\n    ~~~~~~~~~~~~~~~~~~^^^^^^\nTypeError: 'NoneType' object is not callable\n"
+}

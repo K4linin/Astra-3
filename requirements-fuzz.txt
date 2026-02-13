@@ -1,0 +1,60 @@
+# Fuzzing Testing Suite Dependencies
+# Install with: pip install -r requirements-fuzz.txt
+
+# ============================================
+# Core fuzzing frameworks
+# ============================================
+
+# Hypothesis - works on all platforms (Windows, Linux, macOS)
+hypothesis>=6.0.0
+
+# Atheris - Linux/macOS only (used in GitHub Actions)
+# Install on Linux/macOS: pip install atheris>=2.0.0
+# On Windows, this will fail, so it's commented out
+# atheris>=2.0.0
+
+# ============================================
+# Testing frameworks
+# ============================================
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-timeout>=2.2.0
+
+# ============================================
+# Data processing
+# ============================================
+pyyaml>=6.0
+jsonschema>=4.0.0
+
+# ============================================
+# Version control
+# ============================================
+GitPython>=3.1.0
+
+# ============================================
+# GitHub API (for bug reports)
+# ============================================
+PyGithub>=1.58.0
+
+# ============================================
+# Utilities
+# ============================================
+psutil>=5.9.0
+colorama>=0.4.6
+python-dateutil>=2.8.0
+
+# ============================================
+# Coverage
+# ============================================
+coverage>=7.0.0
+
+# ============================================
+# HTTP (optional, for network fuzzing)
+# ============================================
+requests>=2.28.0
+
+# ============================================
+# Reporting
+# ============================================
+jinja2>=3.1.0
+markdown>=3.4.0

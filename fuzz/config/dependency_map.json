@@ -1,0 +1,62 @@
+{
+  "parse_config": [
+    "src/config/",
+    "src/settings.py",
+    "fuzz/targets/parse_config.py"
+  ],
+  "process_user_input": [
+    "src/input/",
+    "src/validation.py",
+    "src/forms.py",
+    "fuzz/targets/process_user_input.py"
+  ],
+  "handle_network_packet": [
+    "src/network/",
+    "src/protocol.py",
+    "src/packet.py",
+    "fuzz/targets/handle_network_packet.py"
+  ],
+  "serialize_data": [
+    "src/serialization/",
+    "src/formats.py",
+    "src/converters.py",
+    "fuzz/targets/serialize_data.py"
+  ],
+  "load_database": [
+    "src/database/",
+    "src/db/",
+    "src/models.py",
+    "src/query.py",
+    "fuzz/targets/load_database.py"
+  ],
+  "compress_image": [
+    "src/image/",
+    "src/compression.py",
+    "src/media/",
+    "fuzz/targets/compress_image.py"
+  ],
+  "execute_command": [
+    "src/commands/",
+    "src/executor.py",
+    "src/cli.py",
+    "fuzz/targets/execute_command.py"
+  ],
+  "format_output": [
+    "src/output/",
+    "src/formatters.py",
+    "src/renderers.py",
+    "fuzz/targets/format_output.py"
+  ],
+  "validate_schema": [
+    "src/schema/",
+    "src/validators.py",
+    "src/validation/",
+    "fuzz/targets/validate_schema.py"
+  ],
+  "calculate_checksum": [
+    "src/crypto/",
+    "src/checksum.py",
+    "src/hash.py",
+    "fuzz/targets/calculate_checksum.py"
+  ]
+}
