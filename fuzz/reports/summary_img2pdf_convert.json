@@ -1,0 +1,16 @@
+{
+  "target": "img2pdf_convert",
+  "timestamp": "2026-02-15T17:08:01.764443",
+  "total_crashes": 658,
+  "crash_types": {
+    "ZeroDivisionError": 498,
+    "DecompressionBombError": 40,
+    "SyntaxError": 71,
+    "Exception": 49
+  },
+  "severities": {
+    "medium": 498,
+    "low": 160
+  },
+  "status": "FAILED"
+}

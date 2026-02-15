@@ -6,6 +6,9 @@ Target: img2pdf_convert
 байты изображений (JPEG, PNG, TIFF, GIF и др.) и конвертирует их в PDF.
 
 GitHub: https://github.com/josch/img2pdf
+
+НАЙДЕННЫЕ БАГИ:
+- ZeroDivisionError при DPI=0 в изображении (img2pdf.py:2616)
 """
 
 import sys
@@ -13,6 +16,13 @@ from io import BytesIO
 from typing import Optional
 
 import img2pdf
+
+# Импортируем Pillow для ловли его исключений
+try:
+    from PIL import Image
+    PIL_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
 
 
 # Валидные сигнатуры форматов изображений для создания corpus
@@ -41,7 +51,6 @@ def get_image_format(data: bytes) -> Optional[str]:
 
 def create_minimal_jpeg() -> bytes:
     """Создание минимального валидного JPEG для corpus"""
-    # Минимальный JPEG 1x1 пиксель
     return bytes([
         0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01,
         0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xFF, 0xDB, 0x00, 0x43,
@@ -77,7 +86,6 @@ def create_minimal_jpeg() -> bytes:
 
 def create_minimal_png() -> bytes:
     """Создание минимального валидного PNG для corpus"""
-    # Минимальный PNG 1x1 пиксель (чёрный)
     return bytes([
         0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,  # PNG signature
         0x00, 0x00, 0x00, 0x0D,  # IHDR length
@@ -113,6 +121,15 @@ def fuzz_target(data: bytes) -> None:
     - ExifOrientationError - проблемы с EXIF ориентацией
     - ValueError - невалидные данные
     - TypeError - неверный тип данных
+    - OSError - I/O проблемы
+    - MemoryError - недостаточно памяти
+    - SyntaxError - ошибки парсинга изображений (PIL)
+    - EOFError - усечённые данные
+    - DecompressionBombError - защитный механизм PIL
+    
+    ВАЖНО: ZeroDivisionError НЕ ловим!
+    Это РЕАЛЬНЫЙ БАГ в img2pdf когда DPI = 0 в изображении.
+    Фаззер должен его найти и записать.
     """
     if len(data) == 0:
         return
@@ -125,64 +142,60 @@ def fuzz_target(data: bytes) -> None:
         img_stream = BytesIO(data)
         
         # Пытаемся конвертировать "изображение" в PDF
-        # convert() принимает список источников или итератор
-        # Также можно передать bytes напрямую
         pdf_bytes = img2pdf.convert([img_stream])
         
         # Если конвертация прошла успешно, проверяем что результат валидный
         if pdf_bytes:
-            # PDF должен начинаться с %PDF
-            _ = len(pdf_bytes)  # Просто проверяем что что-то вернулось
+            _ = len(pdf_bytes)
             
+    # ========== img2pdf expected exceptions ==========
     except img2pdf.ImageOpenError:
-        # Ожидаемая ошибка - невалидное изображение
         pass
     except img2pdf.UnsupportedColorspaceError:
-        # Ожидаемая ошибка - неподдерживаемое цветовое пространство
         pass
     except img2pdf.AlphaChannelError:
-        # Ожидаемая ошибка - проблемы с альфа-каналом
         pass
     except img2pdf.JpegColorspaceError:
-        # Ожидаемая ошибка - цветовое пространство JPEG
         pass
     except img2pdf.NegativeDimensionError:
-        # Ожидаемая ошибка - отрицательные размеры
         pass
     except img2pdf.PdfTooLargeError:
-        # Ожидаемая ошибка - PDF слишком большой
         pass
     except img2pdf.ExifOrientationError:
-        # Ожидаемая ошибка - EXIF ориентация
         pass
+    
+    # ========== Standard Python exceptions ==========
     except ValueError:
-        # Ожидаемая ошибка - невалидные данные
         pass
     except TypeError:
-        # Ожидаемая ошибка - неверный тип
         pass
     except OSError:
-        # Ожидаемая ошибка - I/O проблемы
         pass
     except MemoryError:
-        # Ожидаемая ошибка - недостаточно памяти
         pass
+    
+    # ========== PIL/Pillow exceptions (not bugs in img2pdf) ==========
+    except SyntaxError:
+        # PIL raises SyntaxError for invalid image formats
+        pass
+    except EOFError:
+        # Truncated image data
+        pass
+    
+    # ВАЖНО: ZeroDivisionError НЕ ловим намеренно!
+    # Это РЕАЛЬНЫЙ БАГ в img2pdf: division by zero в px_to_pt()
+    # когда DPI изображения равен 0.
 
 
 def get_corpus_samples() -> dict:
-    """
-    Возвращает словарь с примерами для начального corpus.
-    Эти данные будут использоваться для мутаций.
-    """
+    """Возвращает словарь с примерами для начального corpus."""
     return {
         'minimal_jpeg.jpg': create_minimal_jpeg(),
         'minimal_png.png': create_minimal_png(),
-        # Мутанты с повреждёнными заголовками
         'truncated_jpeg.jpg': create_minimal_jpeg()[:50],
         'truncated_png.png': create_minimal_png()[:20],
         'corrupted_jpeg.jpg': b'\xff\xd8\xff' + b'\x00' * 100,
         'corrupted_png.png': b'\x89PNG\r\n\x1a\n' + b'\x00' * 100,
-        # Случайные данные с валидными сигнатурами
         'fake_gif.gif': b'GIF89a' + b'\x00' * 50,
         'fake_bmp.bmp': b'BM' + b'\x00' * 50,
         'fake_tiff.tiff': b'II' + b'\x00' * 50,
@@ -190,7 +203,6 @@ def get_corpus_samples() -> dict:
 
 
 if __name__ == '__main__':
-    # Для atheris (Linux/macOS)
     try:
         import atheris
         atheris.Setup(sys.argv, lambda d: fuzz_target(d))

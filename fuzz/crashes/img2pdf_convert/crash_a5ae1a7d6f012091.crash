@@ -1,0 +1,11 @@
+{
+  "crash_id": "a5ae1a7d6f012091",
+  "crash_type": "ZeroDivisionError",
+  "severity": "medium",
+  "is_false_positive": false,
+  "target": "img2pdf_convert",
+  "timestamp": "2026-02-15T16:16:07.226200",
+  "input_size": 341,
+  "input_hex": "ffd8ffe000104a464946b100010100000100010000ffdb004300080606070605080707070909080a0c140d0c0bc70b0c1912130f141d1a1f1e1d1a1c1c20242e2720222c231c1c283729d12c30313434341f27393d38323c2e333432ffc0000b08000100",
+  "stack_trace": "Traceback (most recent call last):\n  File \"C:\\Users\\kalin\\OneDrive\\\u0420\u0430\u0431\u043e\u0447\u0438\u0439 \u0441\u0442\u043e\u043b\\Astra-3\\fuzz\\scripts\\fuzzing_monitor.py\", line 413, in _run_single_test\n    self.fuzz_function(data)\n    ~~~~~~~~~~~~~~~~~~^^^^^^\n  File \"C:\\Users\\kalin\\OneDrive\\\u0420\u0430\u0431\u043e\u0447\u0438\u0439 \u0441\u0442\u043e\u043b\\Astra-3\\fuzz\\targets\\img2pdf_convert.py\", line 130, in fuzz_target\n    pdf_bytes = img2pdf.convert([img_stream])\n  File \"C:\\Users\\kalin\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\site-packages\\img2pdf.py\", line 3100, in convert\n    pdf = convert_to_docobject(*images, **kwargs)\n  File \"C:\\Users\\kalin\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\site-packages\\img2pdf.py\", line 3029, in convert_to_docobject\n    pagewidth, pageheight, imgwidthpdf, imgheightpdf = kwargs[\"layout_fun\"](\n                                                       ~~~~~~~~~~~~~~~~~~~~^\n        imgwidthpx, imgheightpx, ndpi\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"C:\\Users\\kalin\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\site-packages\\img2pdf.py\", line 2868, in default_layout_fun\n    imgwidthpdf = pagewidth = px_to_pt(imgwidthpx, ndpi[0])\n                              ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\kalin\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\site-packages\\img2pdf.py\", line 2616, in px_to_pt\n    return 72.0 * length / dpi\n           ~~~~~~~~~~~~~~^~~~~\nZeroDivisionError: division by zero\n"
+}

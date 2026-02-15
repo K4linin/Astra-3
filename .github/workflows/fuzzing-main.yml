@@ -108,7 +108,7 @@ jobs:
           all_targets = ["parse_config", "process_user_input", "handle_network_packet",
                         "serialize_data", "load_database", "compress_image",
                         "execute_command", "format_output", "validate_schema",
-                        "calculate_checksum"]
+                        "calculate_checksum", "img2pdf_convert"]
           targets = os.environ.get('INPUT_TARGETS', 'all')
           if targets == 'all':
               selected = all_targets
@@ -134,7 +134,7 @@ jobs:
           mkdir -p ${{ env.REPORTS_DIR }}
           for t in parse_config process_user_input handle_network_packet \
                    serialize_data load_database compress_image execute_command \
-                   format_output validate_schema calculate_checksum; do
+                   format_output validate_schema calculate_checksum img2pdf_convert; do
             mkdir -p "${{ env.CORPUS_DIR }}/$t"
             mkdir -p "${{ env.CRASHES_DIR }}/$t"
             mkdir -p "${{ env.LOGS_DIR }}/$t"
@@ -208,6 +208,11 @@ jobs:
               --logs-dir "${{ env.LOGS_DIR }}/${{ matrix.target }}" \
               --crashes-dir "${{ env.CRASHES_DIR }}/${{ matrix.target }}" \
               --reports-dir "${{ env.REPORTS_DIR }}" || true
+          fi
+      - if: always()
+        run: |
+          if [ -f fuzz/scripts/fuzzing_dashboard.py ]; then
+            python fuzz/scripts/fuzzing_dashboard.py "${{ matrix.target }}" || true
           fi
       - if: always()
         uses: actions/upload-artifact@v4

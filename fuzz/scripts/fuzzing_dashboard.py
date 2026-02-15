@@ -1,0 +1,203 @@
+#!/usr/bin/env python3
+"""
+Fuzzing Dashboard Generator - создаёт красивый HTML/Markdown отчёт для GitHub Actions
+"""
+
+import os
+import json
+from pathlib import Path
+from datetime import datetime
+from collections import Counter
+
+def generate_dashboard(target: str, crashes_dir: str = "fuzz/crashes", output_dir: str = "fuzz/reports"):
+    """Генерирует dashboard для конкретного таргета"""
+    
+    crashes_path = Path(crashes_dir) / target
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    
+    # Собираем статистику
+    crash_types = Counter()
+    severities = Counter()
+    crashes = []
+    
+    if crashes_path.exists():
+        for crash_file in crashes_path.glob("*.crash"):
+            try:
+                with open(crash_file) as f:
+                    data = json.load(f)
+                crash_types[data.get('crash_type', 'Unknown')] += 1
+                severities[data.get('severity', 'unknown')] += 1
+                crashes.append(data)
+            except:
+                pass
+    
+    total_crashes = len(crashes)
+    
+    # Генерируем Markdown отчёт
+    md_report = f"""# 🔍 Fuzzing Dashboard: `{target}`
+
+**Generated:** {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}
+
+---
+
+## 📊 Summary
+
+| Metric | Value |
+|--------|-------|
+| **Total Crashes** | {total_crashes} |
+| **Unique Types** | {len(crash_types)} |
+| **Critical/High** | {severities.get('critical', 0) + severities.get('high', 0)} |
+| **Medium** | {severities.get('medium', 0)} |
+| **Low** | {severities.get('low', 0)} |
+
+---
+
+## 🐛 Crash Types
+
+| Type | Count | Severity |
+|------|-------|----------|
+"""
+    
+    for crash_type, count in crash_types.most_common(20):
+        # Определяем severity для типа
+        severity = 'medium'
+        if 'ZeroDivision' in crash_type or 'Overflow' in crash_type:
+            severity = 'high'
+        elif 'Syntax' in crash_type or 'Decompression' in crash_type:
+            severity = 'low'
+        
+        emoji = {'critical': '🔴', 'high': '🟠', 'medium': '🟡', 'low': '🟢'}.get(severity, '⚪')
+        md_report += f"| `{crash_type}` | {count} | {emoji} {severity} |\n"
+    
+    # Добавляем примеры крашей
+    if crashes:
+        md_report += "\n---\n\n## 🔬 Sample Crashes\n\n"
+        
+        for i, crash in enumerate(crashes[:5]):
+            crash_type = crash.get('crash_type', 'Unknown')
+            input_hex = crash.get('input_hex', '')[:50]
+            severity = crash.get('severity', 'unknown')
+            emoji = {'critical': '🔴', 'high': '🟠', 'medium': '🟡', 'low': '🟢'}.get(severity, '⚪')
+            
+            md_report += f"""### {emoji} Crash #{i+1}: `{crash_type}`
+
+- **Severity:** {severity}
+- **Input (hex):** `{input_hex}...`
+
+<details>
+<summary>Stack Trace</summary>
+
+```
+{crash.get('stack_trace', 'N/A')[:1500]}
+```
+
+</details>
+
+---
+
+"""
+    
+    # Сохраняем Markdown
+    md_file = output_path / f"dashboard_{target}.md"
+    with open(md_file, 'w', encoding='utf-8') as f:
+        f.write(md_report)
+    
+    # Генерируем JSON для GitHub Actions Summary
+    summary = {
+        'target': target,
+        'timestamp': datetime.utcnow().isoformat(),
+        'total_crashes': total_crashes,
+        'crash_types': dict(crash_types),
+        'severities': dict(severities),
+        'status': 'FAILED' if total_crashes > 0 else 'PASSED'
+    }
+    
+    json_file = output_path / f"summary_{target}.json"
+    with open(json_file, 'w') as f:
+        json.dump(summary, f, indent=2)
+    
+    # Записываем в GITHUB_STEP_SUMMARY если доступно
+    github_summary = os.environ.get('GITHUB_STEP_SUMMARY')
+    if github_summary:
+        with open(github_summary, 'a', encoding='utf-8') as f:
+            f.write(md_report)
+    
+    print(f"Dashboard generated: {md_file}")
+    return summary
+
+
+def generate_combined_dashboard(targets: list, crashes_dir: str = "fuzz/crashes", output_dir: str = "fuzz/reports"):
+    """Генерирует объединённый dashboard для всех таргетов"""
+    
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    
+    all_summaries = []
+    total_all_crashes = 0
+    
+    for target in targets:
+        summary = generate_dashboard(target, crashes_dir, output_dir)
+        all_summaries.append(summary)
+        total_all_crashes += summary['total_crashes']
+    
+    # Объединённый Markdown
+    combined_md = f"""# 🔍 Fuzzing Dashboard - Combined Report
+
+**Generated:** {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}
+
+---
+
+## 📊 Overview
+
+| Target | Crashes | Status |
+|--------|---------|--------|
+"""
+    
+    for s in all_summaries:
+        status_emoji = '✅' if s['status'] == 'PASSED' else '❌'
+        combined_md += f"| `{s['target']}` | {s['total_crashes']} | {status_emoji} {s['status']} |\n"
+    
+    combined_md += f"""
+---
+
+## 📈 Summary
+
+- **Total Targets:** {len(targets)}
+- **Total Crashes:** {total_all_crashes}
+- **Overall Status:** {'✅ PASSED' if total_all_crashes == 0 else '❌ FAILED'}
+
+---
+
+*Generated by Astra-3 Fuzzing Suite*
+"""
+    
+    combined_file = output_path / "dashboard_combined.md"
+    with open(combined_file, 'w', encoding='utf-8') as f:
+        f.write(combined_md)
+    
+    # GitHub Summary
+    github_summary = os.environ.get('GITHUB_STEP_SUMMARY')
+    if github_summary:
+        with open(github_summary, 'a', encoding='utf-8') as f:
+            f.write(combined_md)
+    
+    print(f"Combined dashboard generated: {combined_file}")
+    return all_summaries
+
+
+if __name__ == '__main__':
+    import sys
+    
+    if len(sys.argv) > 1:
+        if sys.argv[1] == '--all':
+            targets = ['parse_config', 'process_user_input', 'handle_network_packet',
+                      'serialize_data', 'load_database', 'compress_image',
+                      'execute_command', 'format_output', 'validate_schema',
+                      'calculate_checksum', 'img2pdf_convert']
+            generate_combined_dashboard(targets)
+        else:
+            target = sys.argv[1]
+            generate_dashboard(target)
+    else:
+        print("Usage: python fuzzing_dashboard.py <target> | --all")
