@@ -638,9 +638,12 @@ def run_with_hypothesis(config: FuzzingConfig, monitor: FuzzingMonitor):
     
     crashes_found = []
     
+    # Calculate max_examples based on duration (roughly 10 tests/second)
+    max_examples = min(config.duration_seconds * 15, 10_000_000)
+    
     @given(st.binary(min_size=0, max_size=config.max_input_size))
     @settings(
-        max_examples=100000,
+        max_examples=max_examples,
         database=InMemoryExampleDatabase(),
         deadline=None
     )
@@ -790,6 +793,10 @@ Examples:
     
     # Запуск
     if engine == 'hypothesis' and HYPOTHESIS_AVAILABLE:
+        # Загружаем target перед запуском Hypothesis
+        if not monitor._load_target():
+            print(f"{Fore.RED}[ERROR] Failed to load target{Style.RESET_ALL}")
+            sys.exit(1)
         run_with_hypothesis(config, monitor)
     else:
         # Встроенный движок

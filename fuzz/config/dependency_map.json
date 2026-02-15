@@ -58,5 +58,8 @@
     "src/checksum.py",
     "src/hash.py",
     "fuzz/targets/calculate_checksum.py"
+  ],
+  "img2pdf_convert": [
+    "fuzz/targets/img2pdf_convert.py"
   ]
 }
