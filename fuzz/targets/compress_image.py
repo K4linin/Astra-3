@@ -1,16 +1,15 @@
 """
 Target: compress_image
-Фаззинг-обертка для сжатия изображений
+Фаззинг сжатия: PNG, JPEG, RLE, Zlib
 """
 
 import struct
 import sys
 import zlib
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 
 def parse_png_header(data: bytes) -> Optional[Dict[str, Any]]:
-    """Парсинг PNG заголовка"""
     if len(data) < 8:
         return None
     
@@ -21,7 +20,6 @@ def parse_png_header(data: bytes) -> Optional[Dict[str, Any]]:
     if len(data) < 33:
         return None
     
-    # IHDR chunk
     length = struct.unpack('>I', data[8:12])[0]
     chunk_type = data[12:16]
     
@@ -43,7 +41,6 @@ def parse_png_header(data: bytes) -> Optional[Dict[str, Any]]:
 
 
 def parse_jpeg_header(data: bytes) -> Optional[Dict[str, Any]]:
-    """Парсинг JPEG заголовка"""
     if len(data) < 4:
         return None
     
@@ -54,7 +51,6 @@ def parse_jpeg_header(data: bytes) -> Optional[Dict[str, Any]]:
 
 
 def compress_rle(data: bytes) -> bytes:
-    """RLE сжатие"""
     if not data:
         return b''
     
@@ -62,7 +58,7 @@ def compress_rle(data: bytes) -> bytes:
     count = 1
     prev = data[0]
     
-    for byte in data[1:10000]:  # Limit input size
+    for byte in data[1:10000]:
         if byte == prev and count < 255:
             count += 1
         else:
@@ -78,7 +74,6 @@ def compress_rle(data: bytes) -> bytes:
 
 
 def decompress_rle(data: bytes) -> bytes:
-    """RLE декомпрессия"""
     if len(data) < 2:
         return b''
     
@@ -93,12 +88,10 @@ def decompress_rle(data: bytes) -> bytes:
 
 
 def compress_zlib(data: bytes) -> bytes:
-    """Zlib сжатие"""
     return zlib.compress(data[:100000], level=6)
 
 
 def decompress_zlib(data: bytes) -> bytes:
-    """Zlib декомпрессия"""
     try:
         return zlib.decompress(data[:100000])
     except zlib.error:
@@ -109,26 +102,22 @@ def fuzz_target(data: bytes) -> None:
     if len(data) == 0:
         return
     
-    # 1. PNG parsing
     try:
         _ = parse_png_header(data)
     except struct.error:
         pass
     
-    # 2. JPEG parsing
     try:
         _ = parse_jpeg_header(data)
     except:
         pass
     
-    # 3. RLE compression
     try:
         compressed = compress_rle(data)
         decompressed = decompress_rle(compressed)
     except MemoryError:
         pass
     
-    # 4. Zlib compression
     try:
         compressed = compress_zlib(data)
         decompressed = decompress_zlib(compressed)

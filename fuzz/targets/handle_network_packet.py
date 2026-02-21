@@ -1,11 +1,11 @@
 """
 Target: handle_network_packet
-Фаззинг-обертка для обработки сетевых пакетов
+Фаззинг обработки сетевых пакетов: Ethernet, IP, TCP, UDP
 """
 
 import struct
 import sys
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict
 
 
 class PacketParseError(Exception):
@@ -13,7 +13,6 @@ class PacketParseError(Exception):
 
 
 def parse_ethernet_header(data: bytes) -> Dict[str, Any]:
-    """Парсинг Ethernet заголовка"""
     if len(data) < 14:
         raise PacketParseError("Too short for Ethernet header")
     
@@ -30,7 +29,6 @@ def parse_ethernet_header(data: bytes) -> Dict[str, Any]:
 
 
 def parse_ip_header(data: bytes) -> Dict[str, Any]:
-    """Парсинг IPv4 заголовка"""
     if len(data) < 20:
         raise PacketParseError("Too short for IPv4 header")
     
@@ -62,7 +60,6 @@ def parse_ip_header(data: bytes) -> Dict[str, Any]:
 
 
 def parse_tcp_header(data: bytes) -> Dict[str, Any]:
-    """Парсинг TCP заголовка"""
     if len(data) < 20:
         raise PacketParseError("Too short for TCP header")
     
@@ -92,7 +89,6 @@ def parse_tcp_header(data: bytes) -> Dict[str, Any]:
 
 
 def parse_udp_header(data: bytes) -> Dict[str, Any]:
-    """Парсинг UDP заголовка"""
     if len(data) < 8:
         raise PacketParseError("Too short for UDP header")
     
@@ -108,25 +104,20 @@ def parse_udp_header(data: bytes) -> Dict[str, Any]:
 
 
 def process_packet(data: bytes) -> Dict[str, Any]:
-    """Обработка сетевого пакета"""
     result = {'layers': []}
     
     try:
-        # Ethernet
         eth = parse_ethernet_header(data)
         result['layers'].append(('ethernet', eth))
         payload = eth['payload']
         
-        # IPv4
         if eth['ethertype'] == 0x0800:
             ip = parse_ip_header(payload)
             result['layers'].append(('ipv4', ip))
             
-            # TCP
             if ip['protocol'] == 6:
                 tcp = parse_tcp_header(ip['payload'])
                 result['layers'].append(('tcp', tcp))
-            # UDP
             elif ip['protocol'] == 17:
                 udp = parse_udp_header(ip['payload'])
                 result['layers'].append(('udp', udp))

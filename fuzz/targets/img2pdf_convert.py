@@ -1,14 +1,6 @@
 """
 Target: img2pdf_convert
-Фаззинг-обертка для img2pdf.convert() - конвертер изображений в PDF
-
-Тестирует функцию convert() из библиотеки img2pdf, которая принимает
-байты изображений (JPEG, PNG, TIFF, GIF и др.) и конвертирует их в PDF.
-
-GitHub: https://github.com/josch/img2pdf
-
-НАЙДЕННЫЕ БАГИ:
-- ZeroDivisionError при DPI=0 в изображении (img2pdf.py:2616)
+Фаззинг конвертера изображений в PDF (img2pdf)
 """
 
 import sys
@@ -17,7 +9,6 @@ from typing import Optional
 
 import img2pdf
 
-# Импортируем Pillow для ловли его исключений
 try:
     from PIL import Image
     PIL_AVAILABLE = True
@@ -25,21 +16,19 @@ except ImportError:
     PIL_AVAILABLE = False
 
 
-# Валидные сигнатуры форматов изображений для создания corpus
 VALID_SIGNATURES = {
     'JPEG': b'\xff\xd8\xff',
     'PNG': b'\x89PNG\r\n\x1a\n',
     'GIF87a': b'GIF87a',
     'GIF89a': b'GIF89a',
-    'TIFF_LE': b'II',  # Little-endian
-    'TIFF_BE': b'MM',  # Big-endian
+    'TIFF_LE': b'II',
+    'TIFF_BE': b'MM',
     'BMP': b'BM',
-    'JP2': b'\x00\x00\x00\x0c\x6a\x50\x20\x20',  # JPEG 2000
+    'JP2': b'\x00\x00\x00\x0c\x6a\x50\x20\x20',
 }
 
 
 def get_image_format(data: bytes) -> Optional[str]:
-    """Определение формата изображения по сигнатуре"""
     if len(data) < 8:
         return None
     
@@ -50,7 +39,6 @@ def get_image_format(data: bytes) -> Optional[str]:
 
 
 def create_minimal_jpeg() -> bytes:
-    """Создание минимального валидного JPEG для corpus"""
     return bytes([
         0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01,
         0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xFF, 0xDB, 0x00, 0x43,
@@ -85,70 +73,37 @@ def create_minimal_jpeg() -> bytes:
 
 
 def create_minimal_png() -> bytes:
-    """Создание минимального валидного PNG для corpus"""
     return bytes([
-        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,  # PNG signature
-        0x00, 0x00, 0x00, 0x0D,  # IHDR length
-        0x49, 0x48, 0x44, 0x52,  # IHDR
-        0x00, 0x00, 0x00, 0x01,  # width = 1
-        0x00, 0x00, 0x00, 0x01,  # height = 1
-        0x08, 0x02, 0x00, 0x00, 0x00,  # bit depth=8, color type=RGB
-        0x90, 0x77, 0x53, 0xDE,  # CRC
-        0x00, 0x00, 0x00, 0x0C,  # IDAT length
-        0x49, 0x44, 0x41, 0x54,  # IDAT
-        0x08, 0xD7, 0x63, 0x00, 0x00, 0x00, 0x03, 0x00, 0x01,  # compressed data
-        0x00, 0x05, 0xFE, 0xD2,  # CRC
-        0x00, 0x00, 0x00, 0x00,  # IEND length
-        0x49, 0x45, 0x4E, 0x44,  # IEND
-        0xAE, 0x42, 0x60, 0x82   # CRC
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+        0x00, 0x00, 0x00, 0x0D,
+        0x49, 0x48, 0x44, 0x52,
+        0x00, 0x00, 0x00, 0x01,
+        0x00, 0x00, 0x00, 0x01,
+        0x08, 0x02, 0x00, 0x00, 0x00,
+        0x90, 0x77, 0x53, 0xDE,
+        0x00, 0x00, 0x00, 0x0C,
+        0x49, 0x44, 0x41, 0x54,
+        0x08, 0xD7, 0x63, 0x00, 0x00, 0x00, 0x03, 0x00, 0x01,
+        0x00, 0x05, 0xFE, 0xD2,
+        0x00, 0x00, 0x00, 0x00,
+        0x49, 0x45, 0x4E, 0x44,
+        0xAE, 0x42, 0x60, 0x82
     ])
 
 
 def fuzz_target(data: bytes) -> None:
-    """
-    Главная фаззинг-функция для img2pdf.convert()
-    
-    Тестирует конвертацию изображений в PDF, подавая различные
-    входные данные - от валидных изображений до полностью мусорных данных.
-    
-    Ожидаемые исключения (НЕ БАГИ):
-    - ImageOpenError - невалидное изображение
-    - UnsupportedColorspaceError - неподдерживаемое цветовое пространство
-    - AlphaChannelError - проблемы с альфа-каналом
-    - JpegColorspaceError - проблемы с цветовым пространством JPEG
-    - NegativeDimensionError - отрицательные размеры
-    - PdfTooLargeError - слишком большой PDF
-    - ExifOrientationError - проблемы с EXIF ориентацией
-    - ValueError - невалидные данные
-    - TypeError - неверный тип данных
-    - OSError - I/O проблемы
-    - MemoryError - недостаточно памяти
-    - SyntaxError - ошибки парсинга изображений (PIL)
-    - EOFError - усечённые данные
-    - DecompressionBombError - защитный механизм PIL
-    
-    ВАЖНО: ZeroDivisionError НЕ ловим!
-    Это РЕАЛЬНЫЙ БАГ в img2pdf когда DPI = 0 в изображении.
-    Фаззер должен его найти и записать.
-    """
     if len(data) == 0:
         return
     
-    # Ограничиваем размер данных для предотвращения OOM
-    data = data[:10_000_000]  # 10 MB max
+    data = data[:10_000_000]
     
     try:
-        # Создаём file-like объект из байтов
         img_stream = BytesIO(data)
-        
-        # Пытаемся конвертировать "изображение" в PDF
         pdf_bytes = img2pdf.convert([img_stream])
         
-        # Если конвертация прошла успешно, проверяем что результат валидный
         if pdf_bytes:
             _ = len(pdf_bytes)
             
-    # ========== img2pdf expected exceptions ==========
     except img2pdf.ImageOpenError:
         pass
     except img2pdf.UnsupportedColorspaceError:
@@ -163,8 +118,6 @@ def fuzz_target(data: bytes) -> None:
         pass
     except img2pdf.ExifOrientationError:
         pass
-    
-    # ========== Standard Python exceptions ==========
     except ValueError:
         pass
     except TypeError:
@@ -173,22 +126,13 @@ def fuzz_target(data: bytes) -> None:
         pass
     except MemoryError:
         pass
-    
-    # ========== PIL/Pillow exceptions (not bugs in img2pdf) ==========
     except SyntaxError:
-        # PIL raises SyntaxError for invalid image formats
         pass
     except EOFError:
-        # Truncated image data
         pass
-    
-    # ВАЖНО: ZeroDivisionError НЕ ловим намеренно!
-    # Это РЕАЛЬНЫЙ БАГ в img2pdf: division by zero в px_to_pt()
-    # когда DPI изображения равен 0.
 
 
 def get_corpus_samples() -> dict:
-    """Возвращает словарь с примерами для начального corpus."""
     return {
         'minimal_jpeg.jpg': create_minimal_jpeg(),
         'minimal_png.png': create_minimal_png(),

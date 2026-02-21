@@ -1,12 +1,12 @@
 """
 Target: validate_schema
-Фаззинг-обертка для валидации схем (JSON Schema, XML Schema)
+Фаззинг валидации JSON Schema
 """
 
 import json
 import re
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 
 class SchemaValidationError(Exception):
@@ -14,7 +14,6 @@ class SchemaValidationError(Exception):
 
 
 def validate_type(value: Any, expected_type: str) -> bool:
-    """Валидация типа данных"""
     type_map = {
         'string': str,
         'number': (int, float),
@@ -27,35 +26,30 @@ def validate_type(value: Any, expected_type: str) -> bool:
     
     expected = type_map.get(expected_type)
     if expected is None:
-        return True  # Unknown type, skip validation
+        return True
     
     return isinstance(value, expected)
 
 
 def validate_string(value: str, constraints: Dict[str, Any]) -> bool:
-    """Валидация строки по ограничениям"""
     if not isinstance(value, str):
         return False
     
-    # Min length
     if 'minLength' in constraints:
         if len(value) < constraints['minLength']:
             return False
     
-    # Max length
     if 'maxLength' in constraints:
         if len(value) > constraints['maxLength']:
             return False
     
-    # Pattern
     if 'pattern' in constraints:
         try:
             if not re.search(constraints['pattern'], value):
                 return False
         except re.error:
-            pass  # Invalid pattern, skip
+            pass
     
-    # Enum
     if 'enum' in constraints:
         if value not in constraints['enum']:
             return False
@@ -64,21 +58,17 @@ def validate_string(value: str, constraints: Dict[str, Any]) -> bool:
 
 
 def validate_number(value: Any, constraints: Dict[str, Any]) -> bool:
-    """Валидация числа"""
     if not isinstance(value, (int, float)):
         return False
     
-    # Minimum
     if 'minimum' in constraints:
         if value < constraints['minimum']:
             return False
     
-    # Maximum
     if 'maximum' in constraints:
         if value > constraints['maximum']:
             return False
     
-    # Multiple of
     if 'multipleOf' in constraints:
         if value % constraints['multipleOf'] != 0:
             return False
@@ -87,21 +77,17 @@ def validate_number(value: Any, constraints: Dict[str, Any]) -> bool:
 
 
 def validate_array(value: list, constraints: Dict[str, Any]) -> bool:
-    """Валидация массива"""
     if not isinstance(value, list):
         return False
     
-    # Min items
     if 'minItems' in constraints:
         if len(value) < constraints['minItems']:
             return False
     
-    # Max items
     if 'maxItems' in constraints:
         if len(value) > constraints['maxItems']:
             return False
     
-    # Unique items
     if constraints.get('uniqueItems'):
         try:
             if len(value) != len(set(json.dumps(item) for item in value)):
@@ -113,25 +99,21 @@ def validate_array(value: list, constraints: Dict[str, Any]) -> bool:
 
 
 def validate_object(value: dict, schema: Dict[str, Any]) -> bool:
-    """Валидация объекта по схеме"""
     if not isinstance(value, dict):
         return False
     
     properties = schema.get('properties', {})
     required = schema.get('required', [])
     
-    # Check required properties
     for prop in required:
         if prop not in value:
             return False
     
-    # Validate each property
     for prop, prop_schema in properties.items():
         if prop in value:
             if not validate_value(value[prop], prop_schema):
                 return False
     
-    # Additional properties
     if not schema.get('additionalProperties', True):
         for prop in value:
             if prop not in properties:
@@ -141,11 +123,9 @@ def validate_object(value: dict, schema: Dict[str, Any]) -> bool:
 
 
 def validate_value(value: Any, schema: Dict[str, Any]) -> bool:
-    """Рекурсивная валидация значения по схеме"""
     if not isinstance(schema, dict):
         return True
     
-    # Type validation
     if 'type' in schema:
         schema_type = schema['type']
         
@@ -156,7 +136,6 @@ def validate_value(value: Any, schema: Dict[str, Any]) -> bool:
             if not validate_type(value, schema_type):
                 return False
     
-    # Type-specific validation
     if isinstance(value, str):
         if not validate_string(value, schema):
             return False
@@ -166,7 +145,6 @@ def validate_value(value: Any, schema: Dict[str, Any]) -> bool:
     elif isinstance(value, list):
         if not validate_array(value, schema):
             return False
-        # Items validation
         if 'items' in schema:
             for item in value:
                 if not validate_value(item, schema['items']):
@@ -175,7 +153,6 @@ def validate_value(value: Any, schema: Dict[str, Any]) -> bool:
         if not validate_object(value, schema):
             return False
     
-    # OneOf, anyOf, allOf
     if 'oneOf' in schema:
         matches = sum(validate_value(value, s) for s in schema['oneOf'])
         if matches != 1:
@@ -189,7 +166,6 @@ def validate_value(value: Any, schema: Dict[str, Any]) -> bool:
         if not all(validate_value(value, s) for s in schema['allOf']):
             return False
     
-    # Not
     if 'not' in schema:
         if validate_value(value, schema['not']):
             return False
@@ -198,14 +174,12 @@ def validate_value(value: Any, schema: Dict[str, Any]) -> bool:
 
 
 def parse_and_validate(data: bytes) -> Dict[str, Any]:
-    """Парсинг данных и валидация по схеме"""
     result = {'valid': False, 'errors': []}
     
     try:
         text = data.decode('utf-8', errors='replace')
         parsed = json.loads(text)
         
-        # Если есть _schema, используем её
         if isinstance(parsed, dict) and '_schema' in parsed:
             schema = parsed['_schema']
             value = parsed.get('value', {})
@@ -217,7 +191,6 @@ def parse_and_validate(data: bytes) -> Dict[str, Any]:
             except Exception as e:
                 result['errors'].append(str(e))
         else:
-            # Просто парсим JSON
             result['valid'] = True
             
     except json.JSONDecodeError as e:

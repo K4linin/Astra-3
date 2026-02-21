@@ -1,12 +1,11 @@
 """
 Target: load_database
-Фаззинг-обертка для операций с базой данных
+Фаззинг SQL операций: SELECT, INSERT
 """
 
-import json
 import re
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 
 class DatabaseError(Exception):
@@ -14,7 +13,6 @@ class DatabaseError(Exception):
 
 
 def parse_sql_value(value: str) -> Any:
-    """Парсинг SQL значения"""
     value = value.strip()
     
     if value.upper() == 'NULL':
@@ -38,7 +36,6 @@ def parse_sql_value(value: str) -> Any:
 
 
 def parse_insert_statement(sql: str) -> Optional[Dict[str, Any]]:
-    """Парсинг INSERT statement"""
     pattern = r"INSERT\s+INTO\s+(\w+)\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)"
     match = re.search(pattern, sql, re.IGNORECASE)
     
@@ -57,7 +54,6 @@ def parse_insert_statement(sql: str) -> Optional[Dict[str, Any]]:
 
 
 def parse_select_statement(sql: str) -> Optional[Dict[str, Any]]:
-    """Парсинг SELECT statement"""
     pattern = r"SELECT\s+(.+?)\s+FROM\s+(\w+)(?:\s+WHERE\s+(.+))?"
     match = re.search(pattern, sql, re.IGNORECASE)
     
@@ -76,7 +72,6 @@ def parse_select_statement(sql: str) -> Optional[Dict[str, Any]]:
 
 
 def simulate_query(data: bytes) -> Dict[str, Any]:
-    """Симуляция выполнения запроса"""
     result = {'success': False, 'type': None, 'data': None}
     
     try:

@@ -1,6 +1,6 @@
 """
 Target: execute_command
-Фаззинг-обертка для выполнения команд (безопасная симуляция)
+Фаззинг безопасной симуляции выполнения команд
 """
 
 import re
@@ -12,36 +12,33 @@ class CommandError(Exception):
     pass
 
 
-# Разрешенные команды (белый список)
 ALLOWED_COMMANDS = {
     'echo', 'ls', 'cat', 'pwd', 'date', 'whoami', 'id', 'uname',
     'head', 'tail', 'wc', 'sort', 'uniq', 'grep', 'find', 'xargs'
 }
 
-# Опасные паттерны
 DANGEROUS_PATTERNS = [
     r'rm\s+-rf',
     r'sudo\s+',
     r'chmod\s+777',
-    r'>(>|>>)',  # Redirection
-    r'\|\s*\|',   # Double pipe
+    r'>(>|>>)',
+    r'\|\s*\|',
     r';\s*rm',
-    r'\$\([^)]+\)',  # Command substitution
-    r'`[^`]+`',      # Backtick substitution
-    r'\$\{[^}]+\}',  # Variable expansion
+    r'\$\([^)]+\)',
+    r'`[^`]+`',
+    r'\$\{[^}]+\}',
     r'eval\s+',
     r'exec\s+',
 ]
 
 
 def tokenize_command(cmd: str) -> List[str]:
-    """Токенизация командной строки"""
     tokens = []
     current = ''
     in_quote = None
     escape = False
     
-    for char in cmd[:10000]:  # Limit length
+    for char in cmd[:10000]:
         if escape:
             current += char
             escape = False
@@ -68,10 +65,8 @@ def tokenize_command(cmd: str) -> List[str]:
 
 
 def is_safe_command(cmd: str) -> bool:
-    """Проверка безопасности команды"""
     cmd_lower = cmd.lower()
     
-    # Проверка опасных паттернов
     for pattern in DANGEROUS_PATTERNS:
         if re.search(pattern, cmd_lower):
             return False
@@ -80,7 +75,6 @@ def is_safe_command(cmd: str) -> bool:
 
 
 def parse_command(cmd: str) -> Optional[Dict[str, Any]]:
-    """Парсинг команды"""
     tokens = tokenize_command(cmd)
     
     if not tokens:
@@ -98,7 +92,6 @@ def parse_command(cmd: str) -> Optional[Dict[str, Any]]:
 
 
 def simulate_command(data: bytes) -> Dict[str, Any]:
-    """Безопасная симуляция выполнения команды"""
     result = {
         'success': False,
         'output': '',
@@ -123,7 +116,6 @@ def simulate_command(data: bytes) -> Dict[str, Any]:
             result['error'] = f"Command '{parsed['command']}' is not allowed"
             return result
         
-        # Симуляция выполнения
         result['success'] = True
         result['output'] = f"[SIMULATED] {parsed['command']} executed"
         

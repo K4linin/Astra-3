@@ -61,5 +61,33 @@
   ],
   "img2pdf_convert": [
     "fuzz/targets/img2pdf_convert.py"
+  ],
+  "cve_url_parsing": [
+    "src/url/",
+    "src/http/",
+    "fuzz/targets/cve_url_parsing.py"
+  ],
+  "cve_deserialization": [
+    "src/serialization/",
+    "src/parsers/",
+    "fuzz/targets/cve_deserialization.py"
+  ],
+  "cve_ssrf": [
+    "src/http/",
+    "src/requests/",
+    "src/fetch/",
+    "fuzz/targets/cve_ssrf.py"
+  ],
+  "cve_path_traversal": [
+    "src/files/",
+    "src/storage/",
+    "src/io/",
+    "fuzz/targets/cve_path_traversal.py"
+  ],
+  "cve_regex_dos": [
+    "src/validation/",
+    "src/regex/",
+    "src/parsers/",
+    "fuzz/targets/cve_regex_dos.py"
   ]
 }

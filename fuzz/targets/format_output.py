@@ -1,15 +1,14 @@
 """
 Target: format_output
-Фаззинг-обертка для форматирования вывода
+Фаззинг форматирования: строк, таблиц, XML, CSV
 """
 
 import re
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 def format_string(template: str, values: Dict[str, Any]) -> str:
-    """Форматирование строки с плейсхолдерами"""
     result = template
     
     for key, value in values.items():
@@ -20,23 +19,19 @@ def format_string(template: str, values: Dict[str, Any]) -> str:
 
 
 def format_table(data: List[List[Any]], headers: List[str] = None) -> str:
-    """Форматирование данных в таблицу"""
     if not data:
         return ''
     
-    # Ограничиваем размер
     data = [row[:20] for row in data[:100]]
     
     if headers:
         data = [headers] + data
     
-    # Вычисляем ширину колонок
     col_widths = []
     for col_idx in range(len(data[0])):
         max_width = max(len(str(row[col_idx])[:50]) for row in data)
         col_widths.append(min(max_width, 50))
     
-    # Формируем строки
     lines = []
     for row in data:
         cells = [
@@ -49,7 +44,6 @@ def format_table(data: List[List[Any]], headers: List[str] = None) -> str:
 
 
 def format_xml(data: Dict[str, Any], root: str = 'root') -> str:
-    """Форматирование в XML"""
     def to_xml(obj: Any, name: str, indent: int = 0) -> str:
         spaces = '  ' * indent
         safe_name = re.sub(r'[^\w]', '_', str(name))[:50]
@@ -74,7 +68,6 @@ def format_xml(data: Dict[str, Any], root: str = 'root') -> str:
 
 
 def format_csv(data: List[List[Any]], delimiter: str = ',') -> str:
-    """Форматирование в CSV"""
     def escape_cell(value: Any) -> str:
         s = str(value)[:1000]
         if delimiter in s or '"' in s or '\n' in s:
@@ -90,13 +83,11 @@ def format_csv(data: List[List[Any]], delimiter: str = ',') -> str:
 
 
 def parse_format_string(data: bytes) -> Dict[str, Any]:
-    """Парсинг и форматирование данных"""
     result = {'type': None, 'output': ''}
     
     try:
         text = data.decode('utf-8', errors='replace')
         
-        # Пробуем JSON
         if text.strip().startswith('{') or text.strip().startswith('['):
             import json
             parsed = json.loads(text)
@@ -112,7 +103,6 @@ def parse_format_string(data: bytes) -> Dict[str, Any]:
                     result['type'] = 'list'
                     result['output'] = format_csv([[item] for item in parsed])
         
-        # Пробуем как шаблон
         elif '{' in text and '}' in text:
             result['type'] = 'template'
             result['output'] = format_string(text, {'value': 'test', 'name': 'sample'})

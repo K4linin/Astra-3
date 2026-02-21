@@ -633,21 +633,26 @@ def run_with_hypothesis(config: FuzzingConfig, monitor: FuzzingMonitor):
     """Запуск фаззинга с Hypothesis (кроссплатформенный)"""
     from hypothesis import given, settings, strategies as st
     from hypothesis.database import InMemoryExampleDatabase
+    from hypothesis import Phase
     
     print(f"{Fore.CYAN}Using Hypothesis fuzzing engine{Style.RESET_ALL}\n")
     
     crashes_found = []
-    
-    # Calculate max_examples based on duration (roughly 10 tests/second)
-    max_examples = min(config.duration_seconds * 15, 10_000_000)
+    start_time = time.time()
     
     @given(st.binary(min_size=0, max_size=config.max_input_size))
     @settings(
-        max_examples=max_examples,
+        max_examples=10_000_000,
         database=InMemoryExampleDatabase(),
-        deadline=None
+        deadline=None,
+        phases=[Phase.generate]
     )
     def hypothesis_test(data: bytes):
+        # Проверка таймаута ПЕРЕД каждым тестом
+        elapsed = time.time() - start_time
+        if elapsed >= config.duration_seconds:
+            raise StopIteration
+        
         if not monitor.running:
             raise StopIteration
         
@@ -688,6 +693,22 @@ def run_with_hypothesis(config: FuzzingConfig, monitor: FuzzingMonitor):
         hypothesis_test()
     except StopIteration:
         pass
+    
+    # Финализация
+    monitor.stats.end_time = datetime.utcnow()
+    monitor.stats.update_execution_rate()
+    
+    elapsed = time.time() - start_time
+    print(f"\n\n{Fore.MAGENTA}{'='*60}{Style.RESET_ALL}")
+    print(f"{Fore.MAGENTA}Fuzzing Complete{Style.RESET_ALL}")
+    print(f"{Fore.MAGENTA}{'='*60}{Style.RESET_ALL}\n")
+    
+    print(f"{Fore.CYAN}Statistics:{Style.RESET_ALL}")
+    print(f"  Duration: {Fore.GREEN}{int(elapsed // 60)}m {int(elapsed % 60)}s{Style.RESET_ALL}")
+    print(f"  Total executions: {Fore.GREEN}{monitor.stats.total_executions:,}{Style.RESET_ALL}")
+    print(f"  Executions/sec: {Fore.GREEN}{monitor.stats.executions_per_second:.2f}{Style.RESET_ALL}")
+    print(f"  Total crashes: {Fore.RED}{monitor.stats.total_crashes}{Style.RESET_ALL}")
+    print(f"  Unique crashes: {Fore.RED}{monitor.stats.unique_crashes}{Style.RESET_ALL}")
     
     return crashes_found
 

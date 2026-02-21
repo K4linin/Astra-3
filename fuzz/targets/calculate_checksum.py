@@ -1,47 +1,40 @@
 """
 Target: calculate_checksum
-Фаззинг-обертка для вычисления контрольных сумм
+Фаззинг контрольных сумм: CRC32, MD5, SHA, Fletcher
 """
 
 import hashlib
 import struct
 import sys
 import zlib
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 
 def crc32(data: bytes) -> int:
-    """CRC32 контрольная сумма"""
     return zlib.crc32(data) & 0xFFFFFFFF
 
 
 def adler32(data: bytes) -> int:
-    """Adler-32 контрольная сумма"""
     return zlib.adler32(data) & 0xFFFFFFFF
 
 
 def md5_hash(data: bytes) -> str:
-    """MD5 хэш"""
     return hashlib.md5(data).hexdigest()
 
 
 def sha1_hash(data: bytes) -> str:
-    """SHA1 хэш"""
     return hashlib.sha1(data).hexdigest()
 
 
 def sha256_hash(data: bytes) -> str:
-    """SHA256 хэш"""
     return hashlib.sha256(data).hexdigest()
 
 
 def simple_checksum(data: bytes) -> int:
-    """Простая контрольная сумма (сложение байтов)"""
     return sum(data) & 0xFFFFFFFF
 
 
 def xor_checksum(data: bytes) -> int:
-    """XOR контрольная сумма"""
     result = 0
     for byte in data:
         result ^= byte
@@ -49,11 +42,10 @@ def xor_checksum(data: bytes) -> int:
 
 
 def fletcher16(data: bytes) -> int:
-    """Fletcher-16 контрольная сумма"""
     sum1 = 0
     sum2 = 0
     
-    for byte in data[:10000]:  # Limit iterations
+    for byte in data[:10000]:
         sum1 = (sum1 + byte) % 255
         sum2 = (sum2 + sum1) % 255
     
@@ -61,7 +53,6 @@ def fletcher16(data: bytes) -> int:
 
 
 def fletcher32(data: bytes) -> int:
-    """Fletcher-32 контрольная сумма"""
     sum1 = 0
     sum2 = 0
     
@@ -74,7 +65,6 @@ def fletcher32(data: bytes) -> int:
 
 
 def internet_checksum(data: bytes) -> int:
-    """Internet checksum (IP/TCP/UDP)"""
     if len(data) % 2 == 1:
         data += b'\x00'
     
@@ -83,7 +73,6 @@ def internet_checksum(data: bytes) -> int:
         word = struct.unpack('>H', data[i:i+2])[0]
         total += word
     
-    # Fold 32-bit sum to 16 bits
     while total >> 16:
         total = (total & 0xFFFF) + (total >> 16)
     
@@ -91,7 +80,6 @@ def internet_checksum(data: bytes) -> int:
 
 
 def verify_checksum(data: bytes, expected: int, algorithm: str) -> bool:
-    """Проверка контрольной суммы"""
     algorithms = {
         'crc32': crc32,
         'adler32': adler32,
@@ -113,7 +101,6 @@ def verify_checksum(data: bytes, expected: int, algorithm: str) -> bool:
 
 
 def parse_checksum_request(data: bytes) -> Dict[str, Any]:
-    """Парсинг запроса на вычисление/проверку контрольной суммы"""
     result = {
         'algorithm': None,
         'checksum': None,
@@ -123,7 +110,6 @@ def parse_checksum_request(data: bytes) -> Dict[str, Any]:
     if len(data) < 2:
         return result
     
-    # Первый байт - тип алгоритма
     algo_code = data[0]
     algo_map = {
         0x00: 'crc32',
@@ -142,8 +128,6 @@ def parse_checksum_request(data: bytes) -> Dict[str, Any]:
         return result
     
     result['algorithm'] = algorithm
-    
-    # Оставшиеся данные
     payload = data[1:]
     
     try:
@@ -175,7 +159,6 @@ def fuzz_target(data: bytes) -> None:
     if len(data) == 0:
         return
     
-    # 1. Вычисляем различные контрольные суммы
     try:
         _ = crc32(data)
     except:
@@ -206,7 +189,6 @@ def fuzz_target(data: bytes) -> None:
     except:
         pass
     
-    # 2. Хэши (ограничиваем размер)
     try:
         _ = md5_hash(data[:100000])
     except:
@@ -222,7 +204,6 @@ def fuzz_target(data: bytes) -> None:
     except:
         pass
     
-    # 3. Парсинг запроса
     try:
         _ = parse_checksum_request(data)
     except:

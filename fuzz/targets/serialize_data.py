@@ -1,6 +1,6 @@
 """
 Target: serialize_data
-Фаззинг-обертка для сериализации данных (JSON, XML, Pickle, MessagePack)
+Фаззинг сериализации: JSON, XML
 """
 
 import json
@@ -9,18 +9,15 @@ from typing import Any
 
 
 def serialize_json(data: Any) -> str:
-    """Сериализация в JSON"""
     return json.dumps(data, default=str)
 
 
 def deserialize_json(data: bytes) -> Any:
-    """Десериализация из JSON"""
     text = data.decode('utf-8', errors='replace')
     return json.loads(text)
 
 
 def serialize_xml(data: dict, root: str = 'root') -> str:
-    """Простейшая XML сериализация"""
     def dict_to_xml(d: dict, indent: int = 0) -> str:
         lines = []
         spaces = '  ' * indent
@@ -51,7 +48,6 @@ def fuzz_target(data: bytes) -> None:
     if len(data) == 0:
         return
     
-    # 1. JSON
     try:
         result = deserialize_json(data)
         _ = serialize_json(result)
@@ -62,11 +58,9 @@ def fuzz_target(data: bytes) -> None:
     except MemoryError:
         pass
     
-    # 2. XML
     try:
         text = data.decode('utf-8', errors='replace')
         if '<' in text and '>' in text:
-            # Простейший тест XML
             _ = serialize_xml({'data': text[:1000]})
     except:
         pass
