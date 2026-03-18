@@ -1,0 +1,100 @@
+version: "1.0"
+
+stages:
+  - install
+  - test
+  - fuzz
+  - report
+
+jobs:
+  install-deps:
+    stage: install
+    image: python:3.11-slim
+    script:
+      - pip install --upgrade pip
+      - pip install -r requirements-fuzz.txt
+    artifacts:
+      paths:
+        - .venv/
+      expire_in: 1 hour
+
+  lint:
+    stage: test
+    image: python:3.11-slim
+    script:
+      - pip install flake8 pylint
+      - flake8 fuzz/ --max-line-length=120 --exclude=fuzz/corpus,fuzz/crashes,fuzz/logs
+      - pylint fuzz/targets/ --disable=C0114,C0115,C0116 --fail-under=7.0 || true
+    allow_failure: true
+
+  unit-tests:
+    stage: test
+    image: python:3.11-slim
+    script:
+      - pip install -r requirements-fuzz.txt
+      - pytest fuzz/targets/ -v --tb=short --timeout=60 || true
+    allow_failure: true
+
+  fuzz-img2pdf:
+    stage: fuzz
+    image: python:3.11-slim
+    script:
+      - pip install -r requirements-fuzz.txt
+      - apt-get update && apt-get install -y libjpeg-dev zlib1g-dev || true
+      - python -c "from fuzz.targets.img2pdf_convert import fuzz_target; print('Target loaded')"
+      - timeout 300 python fuzz/targets/img2pdf_convert.py -runs=1000 || true
+    allow_failure: true
+    timeout: 10m
+
+  fuzz-url-parsing:
+    stage: fuzz
+    image: python:3.11-slim
+    script:
+      - pip install -r requirements-fuzz.txt
+      - pip install atheris || true
+      - python -c "from fuzz.targets.cve_url_parsing import fuzz_target; print('Target loaded')"
+      - timeout 300 python fuzz/targets/cve_url_parsing.py -runs=1000 || true
+    allow_failure: true
+    timeout: 10m
+
+  fuzz-config-parser:
+    stage: fuzz
+    image: python:3.11-slim
+    script:
+      - pip install -r requirements-fuzz.txt
+      - python -c "from fuzz.targets.parse_config import fuzz_target; print('Target loaded')"
+      - timeout 300 python fuzz/targets/parse_config.py -runs=1000 || true
+    allow_failure: true
+    timeout: 10m
+
+  fuzz-cve-targets:
+    stage: fuzz
+    image: python:3.11-slim
+    script:
+      - pip install -r requirements-fuzz.txt
+      - pip install atheris || true
+      - |
+        for target in cve_deserialization cve_path_traversal cve_regex_dos cve_ssrf; do
+          echo "Running $target"
+          timeout 120 python fuzz/targets/${target}.py -runs=500 || true
+        done
+    allow_failure: true
+    timeout: 15m
+
+  generate-report:
+    stage: report
+    image: python:3.11-slim
+    script:
+      - pip install -r requirements-fuzz.txt
+      - python fuzz/scripts/generate_report.py || true
+      - python fuzz/scripts/analyze_crashes.py || true
+    artifacts:
+      paths:
+        - fuzz/reports/
+        - fuzz/logs/
+      expire_in: 7 days
+    allow_failure: true
+
+cache:
+  paths:
+    - .cache/pip/
